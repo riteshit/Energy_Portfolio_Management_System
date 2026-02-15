@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>EPMS - Energy Power Management System</title>
+<style>
+body{
+    margin:0;
+    font-family:Arial, sans-serif;
+    background:#f4f6f9;
+    color:black;
+}
+
+/* ================= HEADER ================= */
+header{
+    background:#184a9c;
+    color:white;
+    padding:12px;
+    text-align:center;
+}
+
+header h2{ margin:0; }
+header p{ margin:3px 0 0 0; font-size:14px; }
+
+/* ================= DASHBOARD ================= */
+.dashboard{
+    display:flex;
+    gap:15px;
+    padding:15px;
+    height:500px;
+}
+
+.panel{
+    flex:1;
+    background:white;
+    border-radius:10px;
+    box-shadow:0 4px 12px rgba(0,0,0,0.15);
+    padding:15px;
+    display:flex;
+    flex-direction:column;
+    height:100%;
+}
+
+.panel h3{
+    margin:0 0 12px 0;
+    font-size:18px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    animation:headerPulse 3s ease-in-out infinite alternate;
+}
+
+@keyframes headerPulse{
+    0%{ color:#184a9c; transform:scale(1); }
+    50%{ color:#0f66cc; transform:scale(1.05); }
+    100%{ color:#184a9c; transform:scale(1); }
+}
+
+/* ================= RADAR ================= */
+.radar-box{
+    flex:1;
+    width:100%;
+    overflow:hidden;
+    border:1px solid #ccc;
+    position:relative;
+    border-radius:8px;
+}
+
+.radar-box img{
+    width:100%;
+    height:100%;
+    object-fit:contain;
+    transform-origin:center;
+    cursor:grab;
+}
+
+/* ================= ALERT ================= */
+.alert-content{
+    height:160px;
+    overflow-y:auto;
+    font-size:13px;
+}
+
+.alert-card{
+    border-left:6px solid;
+    padding:10px;
+    margin-bottom:10px;
+    background:#f9f9f9;
+    border-radius:6px;
+}
+
+.badge{
+    display:inline-block;
+    padding:4px 8px;
+    font-size:12px;
+    font-weight:bold;
+    border-radius:4px;
+    color:white;
+    margin-bottom:6px;
+}
+
+.red-badge{background:#d9534f;}
+.orange-badge{background:#f0ad4e;}
+.yellow-badge{background:#f7c948;color:black;}
+
+.timestamp{
+    font-size:11px;
+    color:gray;
+}
+
+/* ================= DISTRICT MAP ================= */
+svg rect{
+    stroke:black;
+    stroke-width:2;
+    fill:#e0e0e0;
+    rx:25; ry:25;
+    transition: all 0.3s ease;
+}
+
+svg rect:hover{
+    fill:#0f66cc;
+    cursor:pointer;
+    transform: scale(1.05);
+    transition: all 0.3s ease;
+}
+
+svg text{
+    font-weight:bold;
+    font-size:20px;
+    pointer-events:none;
+}
+
+/* ================= FULLSCREEN ================= */
+#fullscreenOverlay{
+    display:none;
+    position:fixed;
+    top:0; left:0;
+    width:100%;
+    height:100%;
+    background:rgba(20,20,30,0.85);
+    z-index:9999;
+    justify-content:center;
+    align-items:center;
+    flex-direction:column;
+    overflow:auto;
+}
+
+#fullscreenOverlay img{
+    width:90%;
+    max-height:90%;
+    object-fit:contain;
+    cursor:grab;
+    transition: transform 0.2s ease;
+}
+
+#fullscreenRadarName{
+    color:white;
+    font-size:24px;
+    margin-bottom:15px;
+    text-align:center;
+}
+
+#closeFullscreen{
+    position:absolute;
+    top:20px; right:30px;
+    font-size:26px;
+    background:red;
+    color:white;
+    border:none;
+    padding:5px 12px;
+    cursor:pointer;
+    border-radius:4px;
+}
+
+/* Fullscreen zoom buttons */
+.zoom-btn{
+    position:absolute;
+    bottom:20px;
+    font-size:20px;
+    background:rgba(255,255,255,0.2);
+    color:white;
+    border:none;
+    padding:10px 14px;
+    border-radius:50%;
+    cursor:pointer;
+    margin:0 10px;
+    user-select:none;
+    transition: background 0.2s;
+}
+.zoom-btn:hover{ background:rgba(255,255,255,0.4); }
+
+#zoomIn{ right:80px; }
+#zoomOut{ right:20px; }
+
+/* Fullscreen district map enhancements */
+#fullscreenOverlay svg{
+    width:90%;
+    height:auto;
+}
+
+#fullscreenOverlay svg rect{
+    rx:25; ry:25;
+}
+
+#fullscreenOverlay svg text{
+    font-size:20px;
+    font-weight:bold;
+}
+</style>
+</head>
+<body>
+
+<header>
+<h2>Energy Power Management System (EPMS)</h2>
+<p>Puducherry Weather Risk Monitoring Dashboard</p>
+</header>
+
+<div class="dashboard">
+
+<!-- RAIN RADAR -->
+<div class="panel">
+<h3>🌧 Rain Radar</h3>
+<div class="radar-box">
+<img id="rainRadar">
+</div>
+</div>
+
+<!-- STORM RADAR -->
+<div class="panel">
+<h3>⛈ Storm Radar</h3>
+<div class="radar-box">
+<img id="stormRadar">
+</div>
+</div>
+
+<!-- WIND RADAR -->
+<div class="panel">
+<h3>💨 Wind Velocity Radar</h3>
+<div class="radar-box">
+<img id="windRadar">
+</div>
+</div>
+
+<!-- ALERT + DISTRICT MAP -->
+<div class="panel">
+<h3>⚠ IMD Alerts & District Map</h3>
+<div class="alert-content" id="alerts">Loading alerts...</div>
+<svg viewBox="0 0 400 240" style="width:100%; height:170px;">
+<rect id="Puducherry" x="10" y="10" width="180" height="100"/>
+<text x="55" y="65">Puducherry</text>
+
+<rect id="Karaikal" x="210" y="10" width="180" height="100"/>
+<text x="250" y="65">Karaikal</text>
+
+<rect id="Mahe" x="10" y="120" width="180" height="100"/>
+<text x="55" y="185">Mahe</text>
+
+<rect id="Yanam" x="210" y="120" width="180" height="100"/>
+<text x="255" y="185">Yanam</text>
+</svg>
+</div>
+
+</div>
+
+<div id="fullscreenOverlay">
+<button id="closeFullscreen">✖</button>
+<div id="fullscreenRadarName"></div>
+<img id="fullscreenImage">
+<button class="zoom-btn" id="zoomIn">+</button>
+<button class="zoom-btn" id="zoomOut">−</button>
+</div>
+
+<script>
+/* -------- RADAR AUTO REFRESH -------- */
+function loadRadars(){
+    const t=new Date().getTime();
+    rainRadar.src="https://mausam.imd.gov.in/Radar/sri_kkl.gif?t="+t;
+    stormRadar.src="https://mausam.imd.gov.in/Radar/caz_kkl.gif?t="+t;
+    windRadar.src="https://mausam.imd.gov.in/Radar/ppv_kkl.gif?t="+t;
+}
+loadRadars();
+setInterval(loadRadars,300000);
+
+/* -------- ZOOM FOR DASHBOARD RADARS -------- */
+function enableZoom(img){
+    let scale=1,posX=0,posY=0,isDrag=false,startX,startY;
+    img.addEventListener("wheel",e=>{
+        e.preventDefault();
+        scale+=e.deltaY*-0.0015;
+        scale=Math.min(Math.max(1,scale),4);
+        img.style.transform=`translate(${posX}px,${posY}px) scale(${scale})`;
+    });
+    img.addEventListener("mousedown",e=>{
+        isDrag=true;
+        startX=e.clientX-posX;
+        startY=e.clientY-posY;
+        img.style.cursor="grabbing";
+    });
+    window.addEventListener("mouseup",()=>isDrag=false);
+    window.addEventListener("mousemove",e=>{
+        if(!isDrag)return;
+        posX=e.clientX-startX;
+        posY=e.clientY-startY;
+        img.style.transform=`translate(${posX}px,${posY}px) scale(${scale})`;
+    });
+    img.addEventListener("dblclick",()=>{
+        scale=1;posX=0;posY=0;
+        img.style.transform="scale(1)";
+    });
+}
+enableZoom(rainRadar);
+enableZoom(stormRadar);
+enableZoom(windRadar);
+
+/* -------- FULLSCREEN WITH ARROW NAV + ZOOM -------- */
+const overlay=document.getElementById("fullscreenOverlay");
+const fullscreenImg=document.getElementById("fullscreenImage");
+const closeBtn=document.getElementById("closeFullscreen");
+const radarNameDiv=document.getElementById("fullscreenRadarName");
+const zoomInBtn=document.getElementById("zoomIn");
+const zoomOutBtn=document.getElementById("zoomOut");
+
+const radars=[
+    {id:"rainRadar", name:"🌧 Rain Radar"},
+    {id:"stormRadar", name:"⛈ Storm Radar"},
+    {id:"windRadar", name:"💨 Wind Velocity Radar"}
+];
+let currentRadarIndex=0;
+
+/* Fullscreen zoom state */
+let scale_FS=1, posX_FS=0, posY_FS=0, isDrag_FS=false, startX_FS, startY_FS;
+
+function resetFullscreenZoom(){
+    scale_FS=1; posX_FS=0; posY_FS=0;
+    fullscreenImg.style.transform="translate(0px,0px) scale(1)";
+}
+
+/* Open fullscreen radar */
+function openFullscreenByIndex(index){
+    currentRadarIndex=index;
+    fullscreenImg.src=document.getElementById(radars[index].id).src;
+    radarNameDiv.textContent=radars[index].name;
+    overlay.style.display="flex";
+    resetFullscreenZoom();
+}
+
+function openFullscreen(src,name){
+    currentRadarIndex=radars.findIndex(r=>document.getElementById(r.id).src===src);
+    fullscreenImg.src=src;
+    radarNameDiv.textContent=name;
+    overlay.style.display="flex";
+    resetFullscreenZoom();
+}
+
+/* Close fullscreen */
+function closeFullscreen(){
+    overlay.style.display="none";
+    resetFullscreenZoom();
+}
+
+/* Dashboard double-click */
+rainRadar.addEventListener("dblclick",()=>openFullscreen(rainRadar.src,"🌧 Rain Radar"));
+stormRadar.addEventListener("dblclick",()=>openFullscreen(stormRadar.src,"⛈ Storm Radar"));
+windRadar.addEventListener("dblclick",()=>openFullscreen(windRadar.src,"💨 Wind Velocity Radar"));
+
+overlay.addEventListener("dblclick",closeFullscreen);
+closeBtn.onclick=closeFullscreen;
+
+/* Arrow nav & ESC */
+document.addEventListener("keydown",e=>{
+    if(e.key==="Escape") closeFullscreen();
+    if(overlay.style.display==="flex"){
+        if(e.key==="ArrowRight"){
+            currentRadarIndex=(currentRadarIndex+1)%radars.length;
+            openFullscreenByIndex(currentRadarIndex);
+        }
+        if(e.key==="ArrowLeft"){
+            currentRadarIndex=(currentRadarIndex-1+radars.length)%radars.length;
+            openFullscreenByIndex(currentRadarIndex);
+        }
+    }
+});
+
+/* -------- FULLSCREEN ZOOM -------- */
+/* Wheel zoom */
+fullscreenImg.addEventListener("wheel", e=>{
+    e.preventDefault();
+    scale_FS += e.deltaY*-0.0015;
+    scale_FS = Math.min(Math.max(1, scale_FS), 5);
+    fullscreenImg.style.transform=`translate(${posX_FS}px,${posY_FS}px) scale(${scale_FS})`;
+});
+
+/* Drag pan */
+fullscreenImg.addEventListener("mousedown", e=>{
+    isDrag_FS=true;
+    startX_FS=e.clientX-posX_FS;
+    startY_FS=e.clientY-posY_FS;
+    fullscreenImg.style.cursor="grabbing";
+});
+window.addEventListener("mouseup",()=>isDrag_FS=false);
+window.addEventListener("mousemove", e=>{
+    if(!isDrag_FS) return;
+    posX_FS=e.clientX-startX_FS;
+    posY_FS=e.clientY-startY_FS;
+    fullscreenImg.style.transform=`translate(${posX_FS}px,${posY_FS}px) scale(${scale_FS})`;
+});
+
+/* Double-click reset */
+fullscreenImg.addEventListener("dblclick",()=>resetFullscreenZoom());
+
+/* Touch pinch support */
+let initialDist = null;
+fullscreenImg.addEventListener("touchstart", e=>{
+    if(e.touches.length===2){
+        initialDist = Math.hypot(
+            e.touches[0].clientX - e.touches[1].clientX,
+            e.touches[0].clientY - e.touches[1].clientY
+        );
+    }
+});
+fullscreenImg.addEventListener("touchmove", e=>{
+    if(e.touches.length===2 && initialDist){
+        const dist = Math.hypot(
+            e.touches[0].clientX - e.touches[1].clientX,
+            e.touches[0].clientY - e.touches[1].clientY
+        );
+        scale_FS *= dist / initialDist;
+        scale_FS = Math.min(Math.max(1, scale_FS), 5);
+        fullscreenImg.style.transform=`translate(${posX_FS}px,${posY_FS}px) scale(${scale_FS})`;
+        initialDist = dist;
+    }
+});
+fullscreenImg.addEventListener("touchend", e=>{
+    if(e.touches.length<2) initialDist=null;
+});
+
+/* Zoom buttons */
+zoomInBtn.addEventListener("click", ()=>{
+    scale_FS=Math.min(scale_FS+0.2,5);
+    fullscreenImg.style.transform=`translate(${posX_FS}px,${posY_FS}px) scale(${scale_FS})`;
+});
+zoomOutBtn.addEventListener("click", ()=>{
+    scale_FS=Math.max(scale_FS-0.2,1);
+    fullscreenImg.style.transform=`translate(${posX_FS}px,${posY_FS}px) scale(${scale_FS})`;
+});
+
+/* -------- IMD ALERT -------- */
+const imdFeed="https://api.allorigins.win/get?url="+encodeURIComponent("https://mausam.imd.gov.in/cap/rss.xml");
+async function fetchAlerts(){
+    try{
+        const res=await fetch(imdFeed);
+        const data=await res.json();
+        const parser=new DOMParser();
+        const xml=parser.parseFromString(data.contents,"text/xml");
+        const items=xml.querySelectorAll("item");
+
+        let output="";
+        ["Puducherry","Karaikal","Mahe","Yanam"].forEach(d=>document.getElementById(d).setAttribute("fill","#e0e0e0"));
+
+        items.forEach(item=>{
+            const title=item.querySelector("title").textContent;
+            const desc=item.querySelector("description").textContent;
+            const pub=item.querySelector("pubDate").textContent;
+
+            ["Puducherry","Karaikal","Mahe","Yanam"].forEach(d=>{
+                if(title.includes(d)){
+                    let color="#e0e0e0",badge="",border="";
+                    if(title.includes("Red")){color="#d9534f";badge="red-badge";border="#d9534f";}
+                    else if(title.includes("Orange")){color="#f0ad4e";badge="orange-badge";border="#f0ad4e";}
+                    else if(title.includes("Yellow")){color="#f7c948";badge="yellow-badge";border="#f7c948";}
+                    document.getElementById(d).setAttribute("fill",color);
+
+                    output+=`<div class="alert-card" style="border-left-color:${border}"><div class="badge ${badge}">${d}</div><div>${desc}</div><div class="timestamp">${new Date(pub).toLocaleString()}</div></div>`;
+                }
+            });
+        });
+
+        alerts.innerHTML=output||"No active alerts for Puducherry UT.";
+    }catch{
+        alerts.innerHTML="Unable to load IMD alerts.";
+    }
+}
+fetchAlerts();
+setInterval(fetchAlerts,300000);
+</script>
+</body>
+</html>
